@@ -46,6 +46,12 @@ java mmap boxed ruby String                     6.790000 1.110000 7.900000 (7.92
 File                                            1.960000 4.140000 6.100000 (9.394000)
 ```
 
+## Observations
+
+- Properly called, mmap is much faster for sequential writes than standard File IO.
+- The `java aliased mmap, unboxed, unsafe, ruby String` strategy is totally usable.
+- We could maybe improve this a bit by making a proper JRuby `BasicLibraryService` and expose the Java `NmapFile` class in Ruby. I will add this shortly.
+
 ### Full Results
 
 ```
