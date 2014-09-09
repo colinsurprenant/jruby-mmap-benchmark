@@ -1,7 +1,5 @@
 # encoding: utf-8
 
-$:.unshift File.join(File.dirname(__FILE__), "/../lib")
-
 require "java"
 require "benchmark"
 require "thread"
@@ -42,7 +40,6 @@ JAVA_STRING_1K = Java::JavaLang::String.new(STRING_1K)
 BYTES_1K = STRING_1K.to_java_bytes
 BUFFER_COUNT = 2 * 1000 * 1024
 REPORT_WIDTH = 50
-
 
 File.delete("test_data.mmap") rescue nil
 mmaped_file = PureMmapFile.new("test_data.mmap", BUFFER_COUNT * BUFFER_SIZE)
