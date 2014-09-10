@@ -7,6 +7,7 @@ rescue
 end
 
 require 'jruby/jrubyc'
+require 'open3'
 
 task :setup do
   ant.mkdir 'dir' => "target/classes"
@@ -28,3 +29,13 @@ task :build => [:setup] do |t, args|
   ) {}
 end
 
+task :benchmark do
+  require "mmap_test"
+
+  # run each test in a fresh VM
+  MmapTest::TESTS.size.times.each do |i|
+    out = IO.popen("ruby mmap_test.rb #{i} 2>&1")
+    puts(out.readlines)
+    out.close
+  end
+end
