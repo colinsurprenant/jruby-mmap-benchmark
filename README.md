@@ -33,6 +33,7 @@ java MmapFile, unboxed, unsafe, ruby String        1.740000 0.810000 2.550000 (2
 java MmapFile, unboxed, safe, ruby String          2.380000 0.810000 3.190000 (3.123000)
 ruby File                                          2.040000 1.580000 3.620000 (3.910000)
 ruby PureMmapFile ruby String#to_java_bytes        4.340000 1.000000 5.340000 (4.604000)
+java MmapFile boxed ruby String                    7.150000 1.120000 8.270000 (8.234000)
 ```
 
 ## Observations
