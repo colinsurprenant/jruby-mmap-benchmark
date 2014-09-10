@@ -53,11 +53,11 @@ public class MmapFileExtLibrary implements Library {
             return context.nil;
         }
 
-        @JRubyMethod(name = "rewind")
-        public void rewind()
+        @JRubyMethod(name = "seek")
+        public void seek(IRubyObject pos)
             throws IOException
         {
-            this.buffer = this.channel.map(FileChannel.MapMode.READ_WRITE, 0, this.size);
+            this.buffer = this.channel.map(FileChannel.MapMode.READ_WRITE, pos.convertToInteger().getLongValue(), this.size);
         }
 
         @JRubyMethod(name = "write", required = 1)

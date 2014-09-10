@@ -22,10 +22,10 @@ public class MmapFile {
     this.buffer = this.channel.map(FileChannel.MapMode.READ_WRITE, 0, size);
   }
 
-  public void rewind()
+  public void seek(long pos)
     throws IOException
   {
-    this.buffer = this.channel.map(FileChannel.MapMode.READ_WRITE, 0, this.size);
+    this.buffer = this.channel.map(FileChannel.MapMode.READ_WRITE, pos, this.size);
   }
 
   public void write(RubyString data) {
