@@ -1,11 +1,13 @@
 # JRuby mmap benchmarks
 
-Series of benchmarks comparing different ways of calling Java NIO mmap from JRuby for sequential writes versus standard JRuby File IO writes.
+Series of benchmarks comparing different ways of calling Java NIO mmap from JRuby for sequential writes versus standard JRuby File IO.
 
-The main "cost" of using Java NIO from JRuby is the Ruby/Java String boxing/unboxing and bytes array conversion.
+The main "cost" of using Java NIO from JRuby when using strings to carry data is the JRuby/Java String conversions.
 
 - `PureMmapFile` is a Ruby implementation that just wraps the Java NIO classes and methods for doing mmap.
 - `MmapFile` is a Java implementation that has different strategies for handling the write method depending on the data type.
+- `MmapFileExt` is a Java extension implementation
+- `File` is just standard Ruby File IO.
 
 These benchmarks have been run on a MBP 13r 2.8GHz i7 with 16GB and 500GB SSD, OSX 10.9.4, JRuby 1.7.15, Java 1.7.0_11-b21
 
@@ -13,106 +15,107 @@ These benchmarks have been run on a MBP 13r 2.8GHz i7 with 16GB and 500GB SSD, O
 
 ```sh
 rake build
-ruby mmap_test.rb
+rake benchmarks
 ```
 
 ## Results Summary
 
 Each test iteration writes 2G of data in 1K chunks.
 
-```
-                                                    user   system    total      real
-java aliased mmap, unboxed, unsafe, ruby String 0.720000 0.810000 1.530000 (1.594000)
-pure mmap java bytes                            0.970000 0.720000 1.690000 (1.702000)
-java mmap, unboxed, unsafe, ruby String         1.780000 1.000000 2.780000 (2.913000)
-java mmap, unboxed, safe, ruby String           2.350000 0.820000 3.170000 (3.173000)
-java mmap java bytes                            0.790000 1.550000 2.340000 (4.221000)
-pure mmap ruby String#to_java_bytes             4.290000 0.910000 5.200000 (4.468000)
-java mmap java String                           3.740000 1.080000 4.820000 (4.875000)
-pure mmap java String#get_bytes                 6.450000 1.030000 7.480000 (6.872000)
-java mmap boxed ruby String                     6.790000 1.110000 7.900000 (7.923000)
-File                                            1.960000 4.140000 6.100000 (9.394000)
-```
-
-Some of these tests are just for comparing different calling strategies but are not really useful. Below are the results for the usable strategies:
+Fastest to slowest results for the realistic/usable strategies, other strategies in the full results are only for experimenting & comparison.
 
 ```
-                                                    user   system    total      real
-java aliased mmap, unboxed, unsafe, ruby String 0.720000 0.810000 1.530000 (1.594000)
-java mmap, unboxed, unsafe, ruby String         1.780000 1.000000 2.780000 (2.913000)
-java mmap, unboxed, safe, ruby String           2.350000 0.820000 3.170000 (3.173000)
-pure mmap ruby String#to_java_bytes             4.290000 0.910000 5.200000 (4.468000)
-java mmap boxed ruby String                     6.790000 1.110000 7.900000 (7.923000)
-File                                            1.960000 4.140000 6.100000 (9.394000)
+                                                       user   system    total      real
+java MmapFileExt, unsafe, ruby String              0.690000 0.700000 1.390000 (1.308000)
+java MmapFile, alias, unboxed, unsafe, ruby String 0.880000 0.660000 1.540000 (1.480000)
+java MmapFileExt, ruby String                      1.360000 0.820000 2.180000 (2.120000)
+java MmapFile, unboxed, unsafe, ruby String        1.740000 0.810000 2.550000 (2.472000)
+java MmapFile, unboxed, safe, ruby String          2.380000 0.810000 3.190000 (3.123000)
+ruby File                                          2.040000 1.580000 3.620000 (3.910000)
+ruby PureMmapFile ruby String#to_java_bytes        4.340000 1.000000 5.340000 (4.604000)
 ```
 
 ## Observations
 
-- Properly called, mmap is much faster for sequential writes than standard File IO.
-- The `java aliased mmap, unboxed, unsafe, ruby String` strategy is totally usable.
-- We could maybe improve this a bit by making a proper JRuby `BasicLibraryService` and expose the Java `NmapFile` class in Ruby. I will add this shortly.
+- mmap is much faster for sequential writes than standard File IO.
+- Java implementations using the String backing bytes without copying ("unsafe") are faster and as an extension it is the fastest.
+- the slowest mmap strategies are all slowed down by the JRuby/Java String conversions.
+
+- from a performance perspective, when calling Java from JRuby and using strings to carry data, you basically want to avoid going through the JRuby-Java String conversions.
 
 ### Full Results
 
 ```
 Rehearsal --------------------------------------------------------------------------------------
-pure mmap ruby String#to_java_bytes                  4.790000   0.980000   5.770000 (  4.700000)
------------------------------------------------------------------------------ total: 5.770000sec
+java MmapFileExt, unsafe, ruby String                0.840000   0.960000   1.800000 (  1.610000)
+----------------------------------------------------------------------------- total: 1.800000sec
 
                                                          user     system      total        real
-pure mmap ruby String#to_java_bytes                  4.290000   0.910000   5.200000 (  4.468000)
+java MmapFileExt, unsafe, ruby String                0.690000   0.700000   1.390000 (  1.308000)
 Rehearsal --------------------------------------------------------------------------------------
-pure mmap java String#get_bytes                      6.680000   1.130000   7.810000 (  7.070000)
------------------------------------------------------------------------------ total: 7.810000sec
+java MmapFileExt, ruby String                        1.600000   1.020000   2.620000 (  2.329000)
+----------------------------------------------------------------------------- total: 2.620000sec
 
                                                          user     system      total        real
-pure mmap java String#get_bytes                      6.450000   1.030000   7.480000 (  6.872000)
+java MmapFileExt, ruby String                        1.360000   0.820000   2.180000 (  2.120000)
 Rehearsal --------------------------------------------------------------------------------------
-pure mmap java bytes                                 1.010000   0.960000   1.970000 (  1.953000)
------------------------------------------------------------------------------ total: 1.970000sec
+ruby PureMmapFile ruby String#to_java_bytes          4.810000   0.950000   5.760000 (  4.730000)
+----------------------------------------------------------------------------- total: 5.760000sec
 
                                                          user     system      total        real
-pure mmap java bytes                                 0.970000   0.720000   1.690000 (  1.702000)
+ruby PureMmapFile ruby String#to_java_bytes          4.340000   1.000000   5.340000 (  4.604000)
 Rehearsal --------------------------------------------------------------------------------------
-java mmap boxed ruby String                          7.370000   1.330000   8.700000 (  8.528000)
------------------------------------------------------------------------------ total: 8.700000sec
+ruby PureMmapFile java String#get_bytes              7.050000   1.090000   8.140000 (  7.185000)
+----------------------------------------------------------------------------- total: 8.140000sec
 
                                                          user     system      total        real
-java mmap boxed ruby String                          6.790000   1.110000   7.900000 (  7.923000)
+ruby PureMmapFile java String#get_bytes              6.750000   1.100000   7.850000 (  7.141000)
 Rehearsal --------------------------------------------------------------------------------------
-java mmap, unboxed, safe, ruby String                3.080000   4.280000   7.360000 (  8.522000)
------------------------------------------------------------------------------ total: 7.360000sec
+ruby PureMmapFile java bytes                         1.360000   0.890000   2.250000 (  1.999000)
+----------------------------------------------------------------------------- total: 2.250000sec
 
                                                          user     system      total        real
-java mmap, unboxed, safe, ruby String                2.350000   0.820000   3.170000 (  3.173000)
+ruby PureMmapFile java bytes                         1.120000   0.860000   1.980000 (  2.592000)
 Rehearsal --------------------------------------------------------------------------------------
-java mmap, unboxed, unsafe, ruby String              2.130000   4.400000   6.530000 (  9.889000)
------------------------------------------------------------------------------ total: 6.530000sec
+java MmapFile boxed ruby String                      7.880000   1.280000   9.160000 (  8.660000)
+----------------------------------------------------------------------------- total: 9.160000sec
 
                                                          user     system      total        real
-java mmap, unboxed, unsafe, ruby String              1.780000   1.000000   2.780000 (  2.913000)
+java MmapFile boxed ruby String                      7.150000   1.120000   8.270000 (  8.234000)
 Rehearsal --------------------------------------------------------------------------------------
-java aliased mmap, unboxed, unsafe, ruby String      0.910000   5.230000   6.140000 ( 10.172000)
------------------------------------------------------------------------------ total: 6.140000sec
+java MmapFile, unboxed, safe, ruby String            3.170000   0.960000   4.130000 (  3.641000)
+----------------------------------------------------------------------------- total: 4.130000sec
 
                                                          user     system      total        real
-java aliased mmap, unboxed, unsafe, ruby String      0.720000   0.810000   1.530000 (  1.594000)
+java MmapFile, unboxed, safe, ruby String            2.380000   0.810000   3.190000 (  3.123000)
 Rehearsal --------------------------------------------------------------------------------------
-java mmap java String                                4.550000   6.010000  10.560000 ( 15.453000)
----------------------------------------------------------------------------- total: 10.560000sec
+java MmapFile, unboxed, unsafe, ruby String          2.580000   0.990000   3.570000 (  3.068000)
+----------------------------------------------------------------------------- total: 3.570000sec
 
                                                          user     system      total        real
-java mmap java String                                3.740000   1.080000   4.820000 (  4.875000)
+java MmapFile, unboxed, unsafe, ruby String          1.740000   0.810000   2.550000 (  2.472000)
 Rehearsal --------------------------------------------------------------------------------------
-java mmap java bytes                                 1.070000   8.040000   9.110000 ( 15.867000)
------------------------------------------------------------------------------ total: 9.110000sec
+java MmapFile, alias, unboxed, unsafe, ruby String   1.170000   1.090000   2.260000 (  1.982000)
+----------------------------------------------------------------------------- total: 2.260000sec
 
                                                          user     system      total        real
-java mmap java bytes                                 0.790000   1.550000   2.340000 (  4.221000)
+java MmapFile, alias, unboxed, unsafe, ruby String   0.880000   0.660000   1.540000 (  1.480000)
 Rehearsal --------------------------------------------------------------------------------------
-File                                                 3.140000   6.370000   9.510000 ( 13.544000)
------------------------------------------------------------------------------ total: 9.510000sec
+java MmapFile java String                            4.550000   1.070000   5.620000 (  5.302000)
+----------------------------------------------------------------------------- total: 5.620000sec
 
                                                          user     system      total        real
-File                                                 1.960000   4.140000   6.100000 (  9.394000)
+java MmapFile java String                            4.240000   1.150000   5.390000 (  5.344000)
+Rehearsal --------------------------------------------------------------------------------------
+java MmapFile java bytes                             1.120000   1.030000   2.150000 (  1.892000)
+----------------------------------------------------------------------------- total: 2.150000sec
+
+                                                         user     system      total        real
+java MmapFile java bytes                             0.870000   0.830000   1.700000 (  1.630000)
+Rehearsal --------------------------------------------------------------------------------------
+ruby File                                            2.940000   3.280000   6.220000 (  6.272000)
+----------------------------------------------------------------------------- total: 6.220000sec
+
+                                                         user     system      total        real
+ruby File                                            2.040000   1.580000   3.620000 (  3.910000)
 ```
