@@ -29,6 +29,7 @@ task :build => [:setup] do |t, args|
   ) {}
 end
 
+desc "run benchmark"
 task :benchmark do
   require "mmap_test"
 
