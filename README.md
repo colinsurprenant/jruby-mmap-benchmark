@@ -13,7 +13,7 @@ These benchmarks have been run on a MBP 13r 2.8GHz i7 with 16GB and 500GB SSD, O
 
 ```sh
 rake build
-rake benchmarks
+rake benchmark
 ```
 
 ## Results Summary
