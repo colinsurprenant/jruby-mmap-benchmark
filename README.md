@@ -1,13 +1,11 @@
 # JRuby mmap benchmarks
 
-Series of benchmarks comparing different ways of calling Java NIO mmap from JRuby for sequential writes versus standard JRuby File IO.
+Series of benchmarks comparing different ways of calling Java NIO mmap from JRuby for sequential writes.
 
-The main "cost" of using Java NIO from JRuby when using strings to carry data is the JRuby/Java String conversions.
+While performing tests in calling into Java NIO mmap from JRuby I realized there is a substential overhead in the automatic JRuby/Java string conversions when crossing the world between JRuby and Java.
+Using strings in Ruby is pretty much the only way to carry "raw data" or "byte arrays". These benchmarks explore different strategies in carrying data through strings between JRuby and Java.
 
-- `PureMmapFile` is a Ruby implementation that just wraps the Java NIO classes and methods for doing mmap.
-- `MmapFile` is a Java implementation that has different strategies for handling the write method depending on the data type.
-- `MmapFileExt` is a Java extension implementation
-- `File` is just standard Ruby File IO.
+What triggered these experiments was that my initial test at using mmap was performing a lot slower than using JRuby standard File IO.
 
 These benchmarks have been run on a MBP 13r 2.8GHz i7 with 16GB and 500GB SSD, OSX 10.9.4, JRuby 1.7.15, Java 1.7.0_11-b21
 
@@ -20,29 +18,35 @@ rake benchmarks
 
 ## Results Summary
 
-Each test iteration writes 2G of data in 1K chunks.
+Each test iteration writes 2G of data in 1K chunks. This represent my typical use-case but I will also add benchmarks for 4/8/16K chunks.
+
+- `PureMmapFile` is a Ruby implementation that just wraps the Java NIO classes and methods for doing mmap.
+- `MmapFile` is a Java implementation that has different strategies for handling the write method depending on the data type.
+- `MmapFileExt` is a Java extension implementation
+- `File` is just standard Ruby File IO.
 
 Fastest to slowest results for the realistic/usable strategies, other strategies in the full results are only for experimenting & comparison.
 
 ```
                                                        user   system    total      real
-java MmapFileExt, unsafe, ruby String              0.690000 0.700000 1.390000 (1.308000)
-java MmapFile, alias, unboxed, unsafe, ruby String 0.880000 0.660000 1.540000 (1.480000)
-java MmapFileExt, ruby String                      1.360000 0.820000 2.180000 (2.120000)
-java MmapFile, unboxed, unsafe, ruby String        1.740000 0.810000 2.550000 (2.472000)
-java MmapFile, unboxed, safe, ruby String          2.380000 0.810000 3.190000 (3.123000)
-ruby File                                          2.040000 1.580000 3.620000 (3.910000)
-ruby PureMmapFile ruby String#to_java_bytes        4.340000 1.000000 5.340000 (4.604000)
-java MmapFile boxed ruby String                    7.150000 1.120000 8.270000 (8.234000)
+1 java MmapFileExt, unsafe, ruby String              0.690000 0.700000 1.390000 (1.308000)
+2 java MmapFile, alias, unboxed, unsafe, ruby String 0.880000 0.660000 1.540000 (1.480000)
+3 java MmapFileExt, ruby String                      1.360000 0.820000 2.180000 (2.120000)
+4 java MmapFile, unboxed, unsafe, ruby String        1.740000 0.810000 2.550000 (2.472000)
+5 java MmapFile, unboxed, safe, ruby String          2.380000 0.810000 3.190000 (3.123000)
+6 ruby File                                          2.040000 1.580000 3.620000 (3.910000)
+7 ruby PureMmapFile ruby String#to_java_bytes        4.340000 1.000000 5.340000 (4.604000)
+8 java MmapFile boxed ruby String                    7.150000 1.120000 8.270000 (8.234000)
 ```
 
 ## Observations
 
-- mmap is much faster for sequential writes than standard File IO.
-- Java implementations using the String backing bytes without copying ("unsafe") are faster and as an extension it is the fastest.
-- the slowest mmap strategies are all slowed down by the JRuby/Java String conversions.
+- JRuby/Java automatic string conversion (8) overhead makes mmap perform a lot worst than File IO (6).
+- avoiding JRuby/Java automatic string conversion (1 & 2) is about 6x faster than (8).
+- avoiding JRuby/Java automatic string conversion (1 & 2) makes mmap perform better for sequential writes (for my use-case) than standard File IO (6).
+- Java implementations using the String backing bytes without copying ("unsafe") are faster (4 vs 5) and as an extension it is the fastest (1 vs 3)
 
-- from a performance perspective, when calling Java from JRuby and using strings to carry data, you basically want to avoid going through the JRuby-Java String conversions.
+So from a performance perspective, when calling Java from JRuby and using strings to carry data, you basically want to avoid going through the JRuby/Java automatic String conversions.
 
 ### Full Results
 
